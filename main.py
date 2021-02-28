@@ -6,9 +6,26 @@ from tqdm import tqdm
 
 def plot(y1, y2):
     plt.plot(y1)
+    # for i in range(len(y1)):
+    #     y2[i] = None
     plt.plot(y2)
     plt.legend(['train_x', 'prediction'])
     plt.show()
+
+
+def make_time_series_data(train_data, time_step):
+    time_step += 1
+    ts_train_x = []
+    ts_train_y = []
+    for i in range(len(train_data) - time_step):
+        time_step_data = train_data[i:i + time_step]
+        ts_train_x.append(time_step_data[:-1])
+        ts_train_y.append(time_step_data[-1])
+    ts_train_x = np.asarray(ts_train_x)
+    ts_train_y = np.asarray(ts_train_y)
+    ts_train_x = ts_train_x.reshape(ts_train_x.shape + (1,)).astype('float32')
+    ts_train_y = ts_train_y.reshape(ts_train_y.shape + (1,)).astype('float32')
+    return ts_train_x, ts_train_y
 
 
 def main():
@@ -25,15 +42,17 @@ def main():
     min_val = np.min(train_data)
     train_data = (train_data - min_val) / max_val
 
-    train_x = np.asarray(train_data[:-1])
-    train_y = np.asarray(train_data[1:])
-    train_x = train_x.reshape((len(train_x), 1, 1)).astype('float32')
-    train_y = train_y.reshape((len(train_y), 1, 1)).astype('float32')
+    time_step = 128
+    batch_size = 32
+
+    train_x, train_y = make_time_series_data(train_data, time_step)
+    print(train_x.shape)
+    print(train_y.shape)
 
     input_layer = tf.keras.layers.Input(shape=train_x.shape[1:])
-    x = tf.keras.layers.LSTM(units=128, return_sequences=True)(input_layer)
-    x = tf.keras.layers.LSTM(units=128, return_sequences=True)(x)
-    x = tf.keras.layers.Dense(units=1)(x)
+    x = tf.keras.layers.LSTM(units=32, return_sequences=True)(input_layer)
+    x = tf.keras.layers.LSTM(units=32, return_sequences=True)(x)
+    x = tf.keras.layers.Dense(units=1, kernel_initializer='he_uniform', activation='linear')(x)
     model = tf.keras.models.Model(input_layer, x)
     model.summary()
 
@@ -44,17 +63,17 @@ def main():
     model.fit(
         x=train_x,
         y=train_y,
-        epochs=100,
-        batch_size=128)
+        epochs=500,
+        batch_size=batch_size)
 
-    y_pred = []
-    y = model.predict(x=train_x.reshape(-1)[0].reshape(1, 1), batch_size=1)
-    y_pred.append(y.reshape(-1)[0])
-    for _ in tqdm(range(362)):
-        y = model.predict(x=y.reshape(1, 1), batch_size=1)
-        y_pred.append(y.reshape(-1)[0])
-
-    plot(train_x.reshape(-1), y_pred)
+    input_x = list(train_x.reshape(-1)[:time_step])
+    y_pred = list(train_x.reshape(-1)[:time_step])
+    for _ in tqdm(range(len(train_data) - time_step + len(train_data))):
+        y = model.predict(x=np.asarray(input_x).reshape((1, time_step, 1)), batch_size=batch_size)
+        y = y.reshape(-1)
+        y_pred.append(y[-1])
+        input_x = input_x[1:] + [float(y[-1])]
+    plot(train_data, y_pred)
 
 
 if __name__ == '__main__':
