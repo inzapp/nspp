@@ -71,7 +71,7 @@ def predict_and_plot_data(model, data, time_step):
 
 def main():
     data = []
-    with open(r'C:\inz\data\covid\time_series_covid_19_confirmed.csv') as f:
+    with open('./time_series_covid_19_confirmed.csv') as f:
         for line in f.readlines():
             if line.find(r'"Korea, South"') > -1:
                 data = list(map(int, line.split(',')[5:]))
