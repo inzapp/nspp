@@ -34,6 +34,8 @@ def inverse_transform(arr, criteria, max_val):
 def make_time_series_data(data, time_step):
     batch_x = []
     batch_y = []
+    raw_batch_x = []
+    raw_batch_y = []
     for i in range(len(data) - time_step - 1):
         batch, _, _ = transform(data[i:(i + time_step + 1)], time_step)
         batch_x.append(batch[:time_step])
@@ -43,39 +45,15 @@ def make_time_series_data(data, time_step):
     return batch_x, batch_y
 
 
-def predict_and_plot_data(model, train_data, validation_data, time_step, mode='train', future_step=0):
-    x = None
-    forward_length = 0
-    if mode == 'train':
-        x = list(train_data[:time_step])
-        y_seq = train_data[:time_step]
-        forward_length = len(train_data) - time_step + future_step
-    elif mode == 'validation':
-        x = list(train_data[-time_step:])
-        y_seq = []
-        forward_length = len(validation_data) + future_step
-    else:
-        print(f'unknown mode {mode}')
-        return
-    for _ in tqdm(range(forward_length)):
-        x, criteria, max_val = transform(x, time_step)
-        y = model(np.asarray(x).reshape((1, time_step, 1)), training=False)
-        y = np.asarray(y).reshape(-1)
-        x = np.append(x[1:], y[-1])
-        x = inverse_transform(x, criteria, max_val)
-        y_seq.append(float(x[-1]))
-    if mode == 'train':
-        plot(train_data, y_seq)
-    elif mode == 'validation':
-        plot(validation_data, y_seq)
-
-
 def load_data():
+    import yfinance as yf
     data = []
+    # data = yf.download('AMZN', start='2013-01-01', end='2022-05-01', progress=False)['Close'].values
+
     # with open('./time_series_covid_19_confirmed.csv') as f:
     #     for line in f.readlines():
     #         if line.find(r'"Korea, South"') > -1:
-    #             data = list(map(int, line.split(',')[5:]))
+    #             data = list(map(float, line.split(',')[5:]))
     #             break
 
     with open('./cansim-0800020-eng-6674700030567901031.csv') as f:
@@ -86,20 +64,90 @@ def load_data():
 
 
 @tf.function
+def graph_forward(model, x, training):
+    return model(x, training=training)
+
+
+@tf.function
 def compute_gradient(model, optimizer, batch_x, y_true):
     with tf.GradientTape() as tape:
-        y_pred = model(batch_x, training=False)
-        loss = tf.square(y_true - y_pred)
-        mse = tf.reduce_mean(loss)
+        y_pred = graph_forward(model, batch_x, True)
+        abs_error = tf.abs(y_true - y_pred)
+        loss = tf.square(abs_error)
+        loss = tf.reduce_mean(loss, axis=0)
+        mae = tf.reduce_mean(abs_error)
     gradients = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-    return mse
+    return mae
 
 
-def fit(model, train_x, train_y, batch_size, max_iteration_count):
+# def evaluate(model, validation_x, validation_y):
+#     print()
+#     loss = 0.0
+#     for i in tqdm(range(len(validation_x))):
+#         y_pred = graph_forward(model, validation_x[i].reshape(((1,) + validation_x[i].shape)), False)
+#         loss += np.mean(np.abs(validation_y[i] - y_pred[-1]))
+#     loss /= float(len(validation_x))
+#     print(f'validation loss : {loss:4f}\n')
+#     return loss
+
+
+def normalize(arr):
+    arr = np.asarray(arr, dtype=np.float32)
+    min_val = np.min(arr)
+    if min_val < 0.0:
+        arr += np.abs(min_val)
+    arr /= np.max(arr)
+    return arr
+
+
+def evaluate(model, train_data, validation_data, time_step, mode='train', show_plot=False, future_step=0):
+    print()
+    x = None
+    forward_length = 0
+    if mode == 'train':
+        x = list(train_data[:time_step])
+        y_seq = []
+        forward_length = len(train_data) - time_step
+    elif mode == 'validation':
+        x = list(train_data[-time_step:])
+        y_seq = []
+        forward_length = len(validation_data)
+    else:
+        print(f'unknown mode {mode}')
+        return
+    for _ in tqdm(range(forward_length)):
+        x, criteria, max_val = transform(x, time_step)
+        y = graph_forward(model, np.asarray(x).reshape((1, time_step, 1)), False)
+        y = np.asarray(y).reshape(-1)
+        x = np.append(x[1:], y[-1])
+        x = inverse_transform(x, criteria, max_val)
+        y_seq.append(float(x[-1]))
+
+    y_true = None
+    y_pred = None
+    if mode == 'train':
+        y_true = np.asarray(train_data[time_step:])
+        y_pred = np.asarray(y_seq)
+    elif mode == 'validation':
+        y_true = np.asarray(validation_data)
+        y_pred = np.asarray(y_seq)
+    loss = np.mean(np.abs(np.asarray(y_true - y_pred)))
+    print(f'validation loss : {loss:4f}\n')
+    if show_plot:
+        plot(y_true, y_pred)
+    return loss
+
+
+def fit(model, train_data, validation_data, train_x, train_y, validation_x, validation_y, batch_size, time_step, max_iteration_count):
     os.makedirs('checkpoints', exist_ok=True)
-    optimizer = tf.keras.optimizers.RMSprop(lr=0.01)
+    optimizer = tf.keras.optimizers.RMSprop(lr=0.0075)
+    # optimizer = tf.keras.optimizers.SGD(lr=0.0001, momentum=0.9, nesterov=True)
+    # optimizer = tf.keras.optimizers.Adam(lr=0.01, beta_1=0.5, beta_2=0.95)
+    # optimizer = tf.keras.optimizers.Adam(lr=0.0075)
     iteration_count = 0
+    print(f'\ntrain on {len(train_x)} samples. train_x.shape : {train_x.shape}')
+    print(f'validate on {len(validation_x)} samples. validation_x.shape : {validation_x.shape} ')
     while True:
         r = np.arange(len(train_x))
         np.random.shuffle(r)
@@ -117,9 +165,9 @@ def fit(model, train_x, train_y, batch_size, max_iteration_count):
             iteration_count += 1
             batch_index += 1
             print(f'\r[{iteration_count:6d} iter] loss => {loss:.4f}', end='')
-            if iteration_count % 2000 == 0:
-                model.save(f'checkpoints/model_{iteration_count}_iter.h5', include_optimizer=False)
-                print()
+            if iteration_count % 1000 == 0:
+                loss = evaluate(model, train_data, validation_data, time_step, mode='validation')
+                model.save(f'checkpoints/model_{iteration_count}_iter_{loss}_val_loss.h5', include_optimizer=False)
             if iteration_count == max_iteration_count:
                 return
 
@@ -131,8 +179,8 @@ def main():
     # plt.show()
     # exit(0)
 
-    time_step = 50
-    batch_size = 8
+    time_step = 14
+    batch_size = 128
 
     validation_ratio = 0.2
     split = int(len(data) * (1.0 - validation_ratio))
@@ -145,36 +193,20 @@ def main():
     validation_x, validation_y = make_time_series_data(validation_data, time_step)
 
     input_layer = tf.keras.layers.Input(shape=(time_step, 1))
-    x = tf.keras.layers.LSTM(units=32, return_sequences=True)(input_layer)
-    x = tf.keras.layers.LSTM(units=32, return_sequences=True)(x)
-    # x = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(units=1, activation='linear'))(x)
+    x = tf.keras.layers.LSTM(units=64, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(input_layer)
+    x = tf.keras.layers.LSTM(units=64, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(x)
     x = tf.keras.layers.Dense(units=1, activation='linear')(x)
     model = tf.keras.models.Model(input_layer, x)
     model.summary()
 
-    fit(model, train_x, train_y, batch_size=batch_size, max_iteration_count=2000)
-    predict_and_plot_data(model, train_data, validation_data, time_step, mode='train')
-    predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation')
-    predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation', future_step=100)
-
-
-def test():
-    a = np.array([1, -1, 5, -5, 10, -10, 15], dtype=np.float32)
-    for v in a:
-        print(f'{v:.2f}', end=' ')
-    print()
-
-    t, c, m = transform(a, len(a))
-    for v in t:
-        print(f'{v:.2f}', end=' ')
-    print()
-
-    a = inverse_transform(t, c, m)
-    for v in a:
-        print(f'{v:.2f}', end=' ')
-    print()
+    fit(model, train_data, validation_data, train_x, train_y, validation_x, validation_y, batch_size=batch_size, time_step=time_step, max_iteration_count=2000)
+    # predict_and_plot_data(model, train_data, validation_data, time_step, mode='train')
+    # predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation')
+    # predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation', future_step=100)
+    evaluate(model, train_data, validation_data, time_step, mode='train', show_plot=True)
+    evaluate(model, train_data, validation_data, time_step, mode='validation', show_plot=True)
+    evaluate(model, train_data, validation_data, time_step, mode='validation', future_step=100, show_plot=True)
 
 
 if __name__ == '__main__':
-    # test()
     main()
