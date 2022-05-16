@@ -85,6 +85,45 @@ def load_data():
     return data
 
 
+@tf.function
+def compute_gradient(model, optimizer, batch_x, y_true):
+    with tf.GradientTape() as tape:
+        y_pred = model(batch_x, training=False)
+        loss = tf.square(y_true - y_pred)
+        mse = tf.reduce_mean(loss)
+    gradients = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    return mse
+
+
+def fit(model, train_x, train_y, batch_size, max_iteration_count):
+    os.makedirs('checkpoints', exist_ok=True)
+    optimizer = tf.keras.optimizers.RMSprop(lr=0.01)
+    iteration_count = 0
+    while True:
+        r = np.arange(len(train_x))
+        np.random.shuffle(r)
+        train_x = train_x[r]
+        train_y = train_y[r]
+        batch_index = 0
+        while True:
+            start_index = batch_index * batch_size
+            end_index = start_index + batch_size
+            if start_index > len(train_x) or end_index > len(train_x):
+                break
+            batch_x = train_x[start_index:end_index]
+            batch_y = train_y[start_index:end_index]
+            loss = compute_gradient(model, optimizer, batch_x, batch_y)
+            iteration_count += 1
+            batch_index += 1
+            print(f'\r[{iteration_count:6d} iter] loss => {loss:.4f}', end='')
+            if iteration_count % 2000 == 0:
+                model.save(f'checkpoints/model_{iteration_count}_iter.h5', include_optimizer=False)
+                print()
+            if iteration_count == max_iteration_count:
+                return
+
+
 def main():
     data = load_data()
     # plt.plot(data)
@@ -105,16 +144,6 @@ def main():
     train_x, train_y = make_time_series_data(train_data, time_step)
     validation_x, validation_y = make_time_series_data(validation_data, time_step)
 
-    r = np.arange(len(train_x))
-    np.random.shuffle(r)
-    train_x = train_x[r]
-    train_y = train_y[r]
-
-    # print(train_x.shape)
-    # print(train_y.shape)
-    # print(validation_x.shape)
-    # print(validation_y.shape)
-
     input_layer = tf.keras.layers.Input(shape=(time_step, 1))
     x = tf.keras.layers.LSTM(units=32, return_sequences=True)(input_layer)
     x = tf.keras.layers.LSTM(units=32, return_sequences=True)(x)
@@ -122,17 +151,8 @@ def main():
     x = tf.keras.layers.Dense(units=1, activation='linear')(x)
     model = tf.keras.models.Model(input_layer, x)
     model.summary()
-    # model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.001), loss=tf.keras.losses.MeanSquaredError())
-    model.compile(optimizer=tf.keras.optimizers.Adam(lr=0.001), loss=tf.keras.losses.MeanSquaredError())
-    model.fit(
-        shuffle=True,
-        x=train_x,
-        y=train_y,
-        validation_data=(validation_x, validation_y),
-        epochs=300,
-        batch_size=batch_size)
-    model.save('model.h5', include_optimizer=False)
 
+    fit(model, train_x, train_y, batch_size=batch_size, max_iteration_count=2000)
     predict_and_plot_data(model, train_data, validation_data, time_step, mode='train')
     predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation')
     predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation', future_step=100)
