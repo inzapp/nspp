@@ -48,7 +48,7 @@ def make_time_series_data(data, time_step):
 def load_data():
     import yfinance as yf
     data = []
-    # data = yf.download('AMZN', start='2013-01-01', end='2022-05-01', progress=False)['Close'].values
+    data = yf.download('AMZN', start='2013-01-01', end='2022-05-01', progress=False)['Close'].values
 
     # with open('./time_series_covid_19_confirmed.csv') as f:
     #     for line in f.readlines():
@@ -56,10 +56,10 @@ def load_data():
     #             data = list(map(float, line.split(',')[5:]))
     #             break
 
-    with open('./cansim-0800020-eng-6674700030567901031.csv') as f:
-        for line in f.readlines():
-            val = float(line.split(',')[1])
-            data.append(val)
+    # with open('./cansim-0800020-eng-6674700030567901031.csv') as f:
+    #     for line in f.readlines():
+    #         val = float(line.split(',')[1])
+    #         data.append(val)
     return data
 
 
@@ -81,17 +81,6 @@ def compute_gradient(model, optimizer, batch_x, y_true):
     return mae
 
 
-# def evaluate(model, validation_x, validation_y):
-#     print()
-#     loss = 0.0
-#     for i in tqdm(range(len(validation_x))):
-#         y_pred = graph_forward(model, validation_x[i].reshape(((1,) + validation_x[i].shape)), False)
-#         loss += np.mean(np.abs(validation_y[i] - y_pred[-1]))
-#     loss /= float(len(validation_x))
-#     print(f'validation loss : {loss:4f}\n')
-#     return loss
-
-
 def normalize(arr):
     arr = np.asarray(arr, dtype=np.float32)
     min_val = np.min(arr)
@@ -108,11 +97,11 @@ def evaluate(model, train_data, validation_data, time_step, mode='train', show_p
     if mode == 'train':
         x = list(train_data[:time_step])
         y_seq = []
-        forward_length = len(train_data) - time_step
+        forward_length = len(train_data) - time_step + future_step
     elif mode == 'validation':
         x = list(train_data[-time_step:])
         y_seq = []
-        forward_length = len(validation_data)
+        forward_length = len(validation_data) + future_step
     else:
         print(f'unknown mode {mode}')
         return
@@ -132,8 +121,11 @@ def evaluate(model, train_data, validation_data, time_step, mode='train', show_p
     elif mode == 'validation':
         y_true = np.asarray(validation_data)
         y_pred = np.asarray(y_seq)
-    loss = np.mean(np.abs(np.asarray(y_true - y_pred)))
-    print(f'validation loss : {loss:4f}\n')
+
+    loss = -1.0
+    if future_step == 0:
+        loss = np.mean(np.abs(np.asarray(y_true - y_pred)))
+        print(f'validation loss : {loss:4f}\n')
     if show_plot:
         plot(y_true, y_pred)
     return loss
@@ -167,7 +159,7 @@ def fit(model, train_data, validation_data, train_x, train_y, validation_x, vali
             print(f'\r[{iteration_count:6d} iter] loss => {loss:.4f}', end='')
             if iteration_count % 1000 == 0:
                 loss = evaluate(model, train_data, validation_data, time_step, mode='validation')
-                model.save(f'checkpoints/model_{iteration_count}_iter_{loss}_val_loss.h5', include_optimizer=False)
+                model.save(f'checkpoints/model_{iteration_count}_iter_{loss:.2f}_val_loss.h5', include_optimizer=False)
             if iteration_count == max_iteration_count:
                 return
 
@@ -179,8 +171,8 @@ def main():
     # plt.show()
     # exit(0)
 
-    time_step = 14
-    batch_size = 128
+    time_step = 64
+    batch_size = 64
 
     validation_ratio = 0.2
     split = int(len(data) * (1.0 - validation_ratio))
@@ -197,12 +189,11 @@ def main():
     x = tf.keras.layers.LSTM(units=64, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(x)
     x = tf.keras.layers.Dense(units=1, activation='linear')(x)
     model = tf.keras.models.Model(input_layer, x)
+    # model = tf.keras.models.load_model('checkpoints/model_43000_iter_240.28371114527926_val_loss.h5', compile=False)
     model.summary()
 
-    fit(model, train_data, validation_data, train_x, train_y, validation_x, validation_y, batch_size=batch_size, time_step=time_step, max_iteration_count=2000)
-    # predict_and_plot_data(model, train_data, validation_data, time_step, mode='train')
-    # predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation')
-    # predict_and_plot_data(model, train_data, validation_data, time_step, mode='validation', future_step=100)
+    fit(model, train_data, validation_data, train_x, train_y, validation_x, validation_y, batch_size=batch_size, time_step=time_step, max_iteration_count=50000)
+    print('\n')
     evaluate(model, train_data, validation_data, time_step, mode='train', show_plot=True)
     evaluate(model, train_data, validation_data, time_step, mode='validation', show_plot=True)
     evaluate(model, train_data, validation_data, time_step, mode='validation', future_step=100, show_plot=True)
