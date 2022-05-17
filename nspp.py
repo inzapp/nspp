@@ -146,7 +146,7 @@ class NasdaqStockPricePredictor:
                 print(f'\r[{iteration_count:6d} iter] loss => {loss:.4f}', end='')
                 if iteration_count % 5000 == 0:
                     loss = self.evaluate(self.model, mode='validation')
-                    model.save(f'checkpoints/{self.ticker}_{iteration_count}_iter_{loss:.2f}_val_loss.h5', include_optimizer=False)
+                    self.model.save(f'checkpoints/{self.ticker}_{iteration_count}_iter_{loss:.2f}_val_loss.h5', include_optimizer=False)
                 if iteration_count == self.max_iteration_count:
                     break_flag = True
                     break
