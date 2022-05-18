@@ -73,9 +73,6 @@ class NasdaqStockPricePredictor:
             assert len(validation_data) > self.time_step
         train_x, train_y = self.convert_time_series_data(train_data, self.time_step)
         validation_x, validation_y = self.convert_time_series_data(validation_data, self.time_step)
-        print(f'\ntrain on {len(train_x)} samples. train_x.shape : {train_x.shape}')
-        print(f'validate on {len(validation_x)} samples. validation_x.shape : {validation_x.shape} ')
-        self.plot_train_validation_data(train_data, validation_data)
         return train_data, validation_data, train_x, train_y, validation_x, validation_y
 
     def plot_train_validation_data(self, train_data, validation_data):
@@ -145,6 +142,9 @@ class NasdaqStockPricePredictor:
         return x, y
 
     def fit(self):
+        print(f'\ntrain on {len(self.train_x)} samples. train_x.shape : {self.train_x.shape}')
+        print(f'validate on {len(self.validation_x)} samples. validation_x.shape : {self.validation_x.shape} ')
+        self.plot_train_validation_data(self.train_data, self.validation_data)
         self.model.summary()
         os.makedirs('checkpoints', exist_ok=True)
         optimizer = tf.keras.optimizers.Adam(lr=self.lr)
@@ -164,7 +164,7 @@ class NasdaqStockPricePredictor:
                 iteration_count += 1
                 batch_index += 1
                 print(f'\r[{iteration_count:6d} iter] loss => {loss:.4f}', end='')
-                if iteration_count % 1000 == 0:
+                if iteration_count % 2000 == 0:
                     model_save_path = f'checkpoints/{self.ticker}_{iteration_count}_iter.h5'
                     if self.validation_ratio > 0.0:
                         loss = self.evaluate_validation()
