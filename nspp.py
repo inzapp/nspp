@@ -68,7 +68,9 @@ class NasdaqStockPricePredictor:
         split = int(len(data) * (1.0 - self.validation_ratio))
         train_data = data[:split]
         validation_data = data[split:]
-        assert len(train_data) > self.time_step and len(validation_data) > self.time_step
+        assert len(train_data) > self.time_step 
+        if self.validation_ratio > 0.0:
+            assert len(validation_data) > self.time_step
         train_x, train_y = self.convert_time_series_data(train_data, self.time_step)
         validation_x, validation_y = self.convert_time_series_data(validation_data, self.time_step)
         print(f'\ntrain on {len(train_x)} samples. train_x.shape : {train_x.shape}')
@@ -162,16 +164,22 @@ class NasdaqStockPricePredictor:
                 iteration_count += 1
                 batch_index += 1
                 print(f'\r[{iteration_count:6d} iter] loss => {loss:.4f}', end='')
-                if iteration_count % 5000 == 0:
-                    loss = self.evaluate_validation()
-                    self.model.save(f'checkpoints/{self.ticker}_{iteration_count}_iter_{loss:.2f}_mae.h5', include_optimizer=False)
+                if iteration_count % 1000 == 0:
+                    model_save_path = f'checkpoints/{self.ticker}_{iteration_count}_iter.h5'
+                    if self.validation_ratio > 0.0:
+                        loss = self.evaluate_validation()
+                        model_save_path = f'checkpoints/{self.ticker}_{iteration_count}_iter_{loss:.2f}_mae.h5'
+                    else:
+                        print()
+                    self.model.save(model_save_path, include_optimizer=False)
                 if iteration_count == self.max_iteration_count:
                     break_flag = True
                     break
             if break_flag:
                 break
-        self.evaluate_train(show_plot=True)
-        self.evaluate_validation(show_plot=True, future_step=self.future_step)
+        self.evaluate_train(show_plot=True, future_step=self.future_step)
+        if self.validation_ratio > 0.0:
+            self.evaluate_validation(show_plot=True, future_step=self.future_step)
 
     def evaluate_train(self, show_plot=False, future_step=0):
         print()
@@ -183,16 +191,17 @@ class NasdaqStockPricePredictor:
             x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
             x = self.inverse_transform(x, criteria, max_val)
             y_seq.append(float(x[-1]))
-            if i < len(self.train_data):
+            if self.time_step + i < len(self.train_data):
                 x = np.append(x[:-1], self.train_data[self.time_step + i])
         y_true = np.asarray(self.train_data[self.time_step:])
         y_pred = np.asarray(y_seq)
-        mae = -1.0
-        if future_step == 0:
-            mae = np.mean(np.abs(np.asarray(y_true - y_pred)))
-            print(f'train data MAE : {mae:4f}\n')
+        mae = np.mean(np.abs(np.asarray(y_true - y_pred[:len(y_true)])))
+        print(f'train MAE : {mae:4f}\n')
         if show_plot:
-            self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted train data')
+            if future_step > 0:
+                self.plot_with_future_prediction(y_true, y_pred)
+            else:
+                self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted train data')
         return mae
 
     def evaluate_validation(self, show_plot=False, future_step=0):
@@ -215,15 +224,18 @@ class NasdaqStockPricePredictor:
         print(f'validation MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
-                y_true = y_true.tolist()
-                y_pred = y_pred.tolist()
-                y_pred_validation_only = y_pred[:len(y_true)]
-                y_pred_predicted_future_only = y_pred[len(y_true):]
-                padded_y_pred_predicted_future = [None for _ in range(len(y_true) - 1)] + [y_pred_validation_only[-1]] + y_pred[len(y_true):]
-                print(f'last price : {y_pred_validation_only[-1]:.4f}')
-                for i in range(len(y_pred_predicted_future_only)):
-                    print(f'predicted price {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
-                self.plot([y_true, y_pred_validation_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], 'AI predicted validation data with future')
+                self.plot_with_future_prediction(y_true, y_pred)
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted validation data')
         return mae
+
+    def plot_with_future_prediction(self, y_true, y_pred):
+        y_true = y_true.tolist()
+        y_pred = y_pred.tolist()
+        y_pred_raw_only = y_pred[:len(y_true)]
+        y_pred_predicted_future_only = y_pred[len(y_true):]
+        padded_y_pred_predicted_future = [None for _ in range(len(y_true) - 1)] + [y_pred_raw_only[-1]] + y_pred[len(y_true):]
+        print(f'last price : {y_pred_raw_only[-1]:.4f}')
+        for i in range(len(y_pred_predicted_future_only)):
+            print(f'predicted price {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
+        self.plot([y_true, y_pred_raw_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], 'AI predicted validation data with future')
