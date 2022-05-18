@@ -82,7 +82,7 @@ class NasdaqStockPricePredictor:
         len_sum = len_train + len_validation
         padded_train_data = train_data.tolist() + [None for _ in range(len_sum - len_train)]
         padded_validation_data = [None for _ in range(len_sum - len_validation - 1)] + [train_data[-1]] + validation_data.tolist()
-        self.plot([padded_train_data, padded_validation_data], [f'{self.ticker} train', f'{self.ticker} validation'])
+        self.plot([padded_train_data, padded_validation_data], [f'{self.ticker} train', f'{self.ticker} validation'], f'{self.ticker} train data')
 
     def convert_time_series_data(self, data, time_step):
         data_x = []
@@ -109,7 +109,9 @@ class NasdaqStockPricePredictor:
         arr *= max_val
         return arr
 
-    def plot(self, datas, legend):
+    def plot(self, datas, legend, title):
+        plt.figure(figsize=(13, 8))
+        plt.gcf().canvas.set_window_title(title)
         for data in datas:
             plt.plot(data)
         plt.legend(legend)
@@ -190,7 +192,7 @@ class NasdaqStockPricePredictor:
             mae = np.mean(np.abs(np.asarray(y_true - y_pred)))
             print(f'train data MAE : {mae:4f}\n')
         if show_plot:
-            self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'])
+            self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted train data')
         return mae
 
     def evaluate_validation(self, show_plot=False, future_step=0):
@@ -221,7 +223,7 @@ class NasdaqStockPricePredictor:
                 print(f'last price : {y_pred_validation_only[-1]:.4f}')
                 for i in range(len(y_pred_predicted_future_only)):
                     print(f'predicted price {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
-                self.plot([y_true, y_pred_validation_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'])
+                self.plot([y_true, y_pred_validation_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], 'AI predicted validation data with future')
             else:
-                self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'])
+                self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted validation data')
         return mae
