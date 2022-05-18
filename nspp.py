@@ -218,7 +218,7 @@ class NasdaqStockPricePredictor:
                 y_pred_validation_only = y_pred[:len(y_true)]
                 y_pred_predicted_future_only = y_pred[len(y_true):]
                 padded_y_pred_predicted_future = [None for _ in range(len(y_true) - 1)] + [y_pred_validation_only[-1]] + y_pred[len(y_true):]
-                print(f'end of data : {y_pred_validation_only[-1]:.4f}')
+                print(f'last price : {y_pred_validation_only[-1]:.4f}')
                 for i in range(len(y_pred_predicted_future_only)):
                     print(f'predicted price {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
                 self.plot([y_true, y_pred_validation_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'])
