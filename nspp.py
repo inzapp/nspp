@@ -51,6 +51,7 @@ class NasdaqStockPricePredictor:
         #     for line in f.readlines():
         #         val = float(line.split(',')[1])
         #         data.append(val)
+        # data = np.array(data)
         split = int(len(data) * (1.0 - self.validation_ratio))
         train_data = data[:split]
         validation_data = data[split:]
@@ -202,8 +203,12 @@ class NasdaqStockPricePredictor:
                 y_true = y_true.tolist()
                 y_pred = y_pred.tolist()
                 y_pred_validation_only = y_pred[:len(y_true)]
-                y_pred_predicted_future = [None for _ in range(len(y_true) - 1)] + [y_pred_validation_only[-1]] + y_pred[len(y_true):]
-                self.plot([y_true, y_pred_validation_only, y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'])
+                y_pred_predicted_future_only = y_pred[len(y_true):]
+                padded_y_pred_predicted_future = [None for _ in range(len(y_true) - 1)] + [y_pred_validation_only[-1]] + y_pred[len(y_true):]
+                print(f'end of data : {y_pred_validation_only[-1]:.4f}')
+                for i in range(len(y_pred_predicted_future_only)):
+                    print(f'predicted {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
+                self.plot([y_true, y_pred_validation_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'])
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'])
         return mae
