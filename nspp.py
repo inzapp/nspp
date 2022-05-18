@@ -70,15 +70,15 @@ class NasdaqStockPricePredictor:
         self.plot([padded_train_data, padded_validation_data], [f'{self.ticker} train', f'{self.ticker} validation'])
 
     def convert_time_series_data(self, data, time_step):
-        batch_x = []
-        batch_y = []
+        data_x = []
+        data_y = []
         for i in range(len(data) - time_step - 1):
             batch, _, _ = self.transform(data[i:(i + time_step + 1)])
-            batch_x.append(batch[:time_step])
-            batch_y.append(batch[-1])
-        batch_x = np.asarray(batch_x).reshape((len(batch_x), time_step, 1)).astype('float32')
-        batch_y = np.asarray(batch_y).reshape((len(batch_y), 1, 1)).astype('float32')
-        return batch_x, batch_y
+            data_x.append(batch[:time_step])
+            data_y.append(batch[-1])
+        data_x = np.asarray(data_x).reshape((len(data_x), time_step, 1)).astype('float32')
+        data_y = np.asarray(data_y).reshape((len(data_y), 1, 1)).astype('float32')
+        return data_x, data_y
 
     def transform(self, arr):
         arr = np.asarray(arr, dtype=np.float32)
@@ -192,7 +192,7 @@ class NasdaqStockPricePredictor:
             x = self.inverse_transform(x, criteria, max_val)
             y_seq.append(float(x[-1]))
             if self.time_step + i < len(self.validation_data):
-                x = np.append(x[:-1], self.validation_data[self.time_step + i])
+                x = np.append(x[:-1], self.validation_data[i])
 
         y_true = np.asarray(self.validation_data)
         y_pred = np.asarray(y_seq)
