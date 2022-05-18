@@ -150,12 +150,13 @@ class NasdaqStockPricePredictor:
             if break_flag:
                 break
 
-        self.evaluate(self.model, mode='train', show_plot=True)
-        self.evaluate(self.model, mode='train', show_plot=True, future_step=self.future_step)
-        self.evaluate(self.model, mode='validation', show_plot=True)
-        self.evaluate(self.model, mode='validation', show_plot=True, future_step=self.future_step)
+        self.evaluate(mode='train', show_plot=True)
+        self.evaluate(mode='train', show_plot=True, future_step=self.future_step)
+        self.evaluate(mode='validation', show_plot=True)
+        self.evaluate(mode='validation', show_plot=True, future_step=self.future_step)
 
-    def evaluate(self, model, mode='train', show_plot=False, future_step=0):
+    def evaluate(self, mode='train', show_plot=False, future_step=0):
+        assert mode == 'train' or mode == 'validation'
         print()
         x = None
         forward_length = 0
@@ -163,13 +164,10 @@ class NasdaqStockPricePredictor:
             x = list(self.train_data[:self.time_step])
             y_seq = []
             forward_length = len(self.train_data) - self.time_step + future_step
-        elif mode == 'validation':
+        else:
             x = list(self.train_data[-self.time_step:])
             y_seq = []
             forward_length = len(self.validation_data) + future_step
-        else:
-            print(f'unknown mode {mode}')
-            return
         for _ in tqdm(range(forward_length)):
             x, criteria, max_val = self.transform(x)
             y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
@@ -182,7 +180,7 @@ class NasdaqStockPricePredictor:
         if mode == 'train':
             y_true = np.asarray(self.train_data[self.time_step:])
             y_pred = np.asarray(y_seq)
-        elif mode == 'validation':
+        else:
             y_true = np.asarray(self.validation_data)
             y_pred = np.asarray(y_seq)
 
