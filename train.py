@@ -2,7 +2,7 @@ from nspp import NasdaqStockPricePredictor as NSPP
 
 if __name__ == '__main__':
     NSPP(
-        ticker='AMZN',
+        ticker='sample_data',
         start_date='2021-01-01',
         end_date='2022-01-01',
         lr=0.01,
@@ -10,4 +10,4 @@ if __name__ == '__main__':
         batch_size=32,
         future_step=7,
         validation_ratio=0.2,
-        max_iteration_count=100).fit()
+        max_iteration_count=5000).fit()

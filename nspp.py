@@ -45,13 +45,15 @@ class NasdaqStockPricePredictor:
         return tf.keras.models.Model(input_layer, x)
 
     def load_data(self):
-        data = yf.download(self.ticker, start=self.start_date, end=self.end_date, progress=False)['Close'].values
-        # data = []
-        # with open('./cansim-0800020-eng-6674700030567901031.csv') as f:
-        #     for line in f.readlines():
-        #         val = float(line.split(',')[1])
-        #         data.append(val)
-        # data = np.array(data)
+        data = []
+        if self.ticker == 'sample_data':
+            with open('sample_data.txt', 'rt') as f:
+                lines = f.readlines()
+            for line in lines:
+                data.append(float(line))
+            data = np.array(data)
+        else:
+            data = yf.download(self.ticker, start=self.start_date, end=self.end_date, progress=False)['Close'].values
         split = int(len(data) * (1.0 - self.validation_ratio))
         train_data = data[:split]
         validation_data = data[split:]
