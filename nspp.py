@@ -68,10 +68,12 @@ class NasdaqStockPricePredictor:
         split = int(len(data) * (1.0 - self.validation_ratio))
         train_data = data[:split]
         validation_data = data[split:]
-        self.plot_train_validation_data(train_data, validation_data)
         assert len(train_data) > self.time_step and len(validation_data) > self.time_step
         train_x, train_y = self.convert_time_series_data(train_data, self.time_step)
         validation_x, validation_y = self.convert_time_series_data(validation_data, self.time_step)
+        print(f'\ntrain on {len(train_x)} samples. train_x.shape : {train_x.shape}')
+        print(f'validate on {len(validation_x)} samples. validation_x.shape : {validation_x.shape} ')
+        self.plot_train_validation_data(train_data, validation_data)
         return train_data, validation_data, train_x, train_y, validation_x, validation_y
 
     def plot_train_validation_data(self, train_data, validation_data):
@@ -143,8 +145,6 @@ class NasdaqStockPricePredictor:
         os.makedirs('checkpoints', exist_ok=True)
         optimizer = tf.keras.optimizers.Adam(lr=self.lr)
         iteration_count = 0
-        print(f'\ntrain on {len(self.train_x)} samples. train_x.shape : {self.train_x.shape}')
-        print(f'validate on {len(self.validation_x)} samples. validation_x.shape : {self.validation_x.shape} ')
         break_flag = False
         while True:
             self.train_x, self.train_y = self.shuffle_data(self.train_x, self.train_y)
@@ -204,7 +204,7 @@ class NasdaqStockPricePredictor:
             x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
             x = self.inverse_transform(x, criteria, max_val)
             y_seq.append(float(x[-1]))
-            if self.time_step + i < len(self.validation_data):
+            if i + future_step < len(self.validation_data):
                 x = np.append(x[:-1], self.validation_data[i])
 
         y_true = np.asarray(self.validation_data)
