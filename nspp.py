@@ -37,9 +37,6 @@ class NasdaqStockPricePredictor:
             self.model = self.build_model()
         self.train_data, self.validation_data, self.train_x, self.train_y, self.validation_x, self.validation_y = self.load_data()
 
-        # self.fit()
-        # print('\n')
-
     def build_model(self):
         input_layer = tf.keras.layers.Input(shape=(self.time_step, 1))
         x = tf.keras.layers.LSTM(units=32, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(input_layer)
