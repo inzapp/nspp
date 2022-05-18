@@ -14,6 +14,7 @@ class NasdaqStockPricePredictor:
                  ticker,
                  start_date,
                  end_date,
+                 interval='1d',
                  lr=0.01,
                  time_step=14,
                  batch_size=32,
@@ -24,6 +25,7 @@ class NasdaqStockPricePredictor:
         self.ticker = ticker
         self.start_date = start_date
         self.end_date = end_date
+        self.interval = interval
         self.time_step = time_step
         self.batch_size = batch_size
         self.lr = lr
@@ -53,7 +55,16 @@ class NasdaqStockPricePredictor:
                 data.append(float(line))
             data = np.array(data)
         else:
-            data = yf.download(self.ticker, start=self.start_date, end=self.end_date, progress=False)['Close'].values
+            assert self.interval in ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo']
+            if self.start_date < '1971-01-01':
+                self.start_date = '1971-01-01'
+            try:
+                data = yf.download(self.ticker, start=self.start_date, end=self.end_date, interval=self.interval, progress=False)['Close'].values
+            except:
+                data = []
+            if len(data) == 0:
+                print(f'invalid date range to get {self.ticker} data : [{self.start_date} ~ {self.end_date}]')
+                exit(0)
         split = int(len(data) * (1.0 - self.validation_ratio))
         train_data = data[:split]
         validation_data = data[split:]
@@ -209,7 +220,7 @@ class NasdaqStockPricePredictor:
                 padded_y_pred_predicted_future = [None for _ in range(len(y_true) - 1)] + [y_pred_validation_only[-1]] + y_pred[len(y_true):]
                 print(f'end of data : {y_pred_validation_only[-1]:.4f}')
                 for i in range(len(y_pred_predicted_future_only)):
-                    print(f'predicted {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
+                    print(f'predicted price {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
                 self.plot([y_true, y_pred_validation_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'])
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'])
