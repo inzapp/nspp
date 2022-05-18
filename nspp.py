@@ -181,7 +181,7 @@ class NasdaqStockPricePredictor:
             x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
             x = self.inverse_transform(x, criteria, max_val)
             y_seq.append(float(x[-1]))
-            if self.time_step + i < len(self.train_data):
+            if i < len(self.train_data):
                 x = np.append(x[:-1], self.train_data[self.time_step + i])
         y_true = np.asarray(self.train_data[self.time_step:])
         y_pred = np.asarray(y_seq)
@@ -204,7 +204,7 @@ class NasdaqStockPricePredictor:
             x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
             x = self.inverse_transform(x, criteria, max_val)
             y_seq.append(float(x[-1]))
-            if i + future_step < len(self.validation_data):
+            if i < len(self.validation_data):
                 x = np.append(x[:-1], self.validation_data[i])
 
         y_true = np.asarray(self.validation_data)
