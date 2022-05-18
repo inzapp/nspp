@@ -199,7 +199,7 @@ class NasdaqStockPricePredictor:
         print(f'train MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
-                self.plot_with_future_prediction(y_true, y_pred)
+                self.plot_with_future_prediction(y_true, y_pred, 'AI predicted train data with future')
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted train data')
         return mae
@@ -224,12 +224,12 @@ class NasdaqStockPricePredictor:
         print(f'validation MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
-                self.plot_with_future_prediction(y_true, y_pred)
+                self.plot_with_future_prediction(y_true, y_pred, 'AI predicted validation data with future')
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted validation data')
         return mae
 
-    def plot_with_future_prediction(self, y_true, y_pred):
+    def plot_with_future_prediction(self, y_true, y_pred, title):
         y_true = y_true.tolist()
         y_pred = y_pred.tolist()
         y_pred_raw_only = y_pred[:len(y_true)]
@@ -238,4 +238,4 @@ class NasdaqStockPricePredictor:
         print(f'last price : {y_pred_raw_only[-1]:.4f}')
         for i in range(len(y_pred_predicted_future_only)):
             print(f'predicted price {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
-        self.plot([y_true, y_pred_raw_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], 'AI predicted validation data with future')
+        self.plot([y_true, y_pred_raw_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], title)
