@@ -61,10 +61,16 @@ class NasdaqStockPricePredictor:
             try:
                 data = yf.download(self.ticker, start=self.start_date, end=self.end_date, interval=self.interval, progress=False)['Close'].values
             except:
-                data = []
-            if len(data) == 0:
                 print(f'invalid date range to get {self.ticker} data : [{self.start_date} ~ {self.end_date}]')
                 exit(0)
+            nan_indexes = np.where(np.isnan(data) == True)
+            if len(nan_indexes) > 0:
+                ans = input(f'{len(nan_indexes)} nan detected in {self.ticker}({self.start_date} ~ {self.end_date}) data. ignore and continue train? [y/n] : ')
+                if ans == 'y' or ans == 'Y':
+                    for i in nan_indexes[::-1]:
+                        data = np.delete(data, i)
+                else:
+                    exit(0)
         split = int(len(data) * (1.0 - self.validation_ratio))
         train_data = data[:split]
         validation_data = data[split:]
