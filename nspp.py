@@ -102,8 +102,8 @@ class NasdaqStockPricePredictor:
 
     def transform(self, arr):
         arr = np.asarray(arr, dtype=np.float32)
-        max_val = np.max(arr[:self.time_step])
-        arr /= np.max(arr)
+        max_val = np.max(arr[:self.time_step]) + 1e-5
+        arr /= max_val
         criteria = arr[0]
         arr -= criteria
         return arr, criteria, max_val
