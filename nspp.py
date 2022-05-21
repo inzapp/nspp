@@ -59,7 +59,7 @@ class NasdaqStockPricePredictor:
             if self.start_date < '1971-01-01':
                 self.start_date = '1971-01-01'
             try:
-                data = yf.download(self.ticker, start=self.start_date, end=self.end_date, interval=self.interval, progress=False)['Close'].values
+                data = yf.download(self.ticker, start=self.start_date, end=self.end_date, interval=self.interval, auto_adjust=True, prepost=False, progress=False)['Close'].values
             except:
                 print(f'invalid date range to get {self.ticker} data : [{self.start_date} ~ {self.end_date}]')
                 exit(0)
