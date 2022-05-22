@@ -189,59 +189,83 @@ class NasdaqStockPricePredictor:
 
     def evaluate_train(self, show_plot=False, future_step=0):
         print()
+        y_pred = []
         x = self.train_data[:self.time_step]
-        y_seq = []
-        for i in tqdm(range(len(self.train_data) - self.time_step + future_step)):
+        for i in tqdm(range(len(self.train_data) - self.time_step)):
             x, criteria, max_val = self.transform(x)
             y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
             x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
             x = self.inverse_transform(x, criteria, max_val)
-            y_seq.append(float(x[-1]))
-            if self.time_step + i < len(self.train_data):
-                x = np.append(x[:-1], self.train_data[self.time_step + i])
+            y_pred.append(float(x[-1]))
+            x = np.append(x[:-1], self.train_data[self.time_step + i])
+
+        future_pred = []
+        if future_step > 0:
+            future_pred_feed_x = self.train_data[-self.time_step:]
+            x = future_pred_feed_x.copy()
+            for i in tqdm(range(future_step)):
+                x, criteria, max_val = self.transform(x)
+                y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
+                x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
+                x = self.inverse_transform(x, criteria, max_val)
+                future_pred.append(float(x[-1]))
+                if i < len(future_pred_feed_x):
+                    x = np.append(x[:-1], x[-1])
+
         y_true = np.asarray(self.train_data[self.time_step:])
-        y_pred = np.asarray(y_seq)
+        y_pred = np.asarray(y_pred)
         mae = np.mean(np.abs(np.asarray(y_true - y_pred[:len(y_true)])))
         print(f'train MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
-                self.plot_with_future_prediction(y_true, y_pred, 'AI predicted train data with future')
+                self.plot_with_future_prediction(y_true, y_pred, future_pred, 'AI predicted train data with future')
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted train data')
         return mae
 
     def evaluate_validation(self, show_plot=False, future_step=0):
         print()
-        x = list(self.train_data[-self.time_step:])
-        y_seq = []
-        forward_length = len(self.validation_data) + future_step
-        for i in tqdm(range(forward_length)):
+        y_pred = []
+        x = self.train_data[-self.time_step:]
+        for i in tqdm(range(len(self.validation_data))):
             x, criteria, max_val = self.transform(x)
             y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
             x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
             x = self.inverse_transform(x, criteria, max_val)
-            y_seq.append(float(x[-1]))
-            if i < len(self.validation_data):
-                x = np.append(x[:-1], self.validation_data[i])
+            y_pred.append(float(x[-1]))
+            x = np.append(x[:-1], self.validation_data[i])
+
+        future_pred = []
+        if future_step > 0:
+            future_pred_feed_x = self.validation_data[-self.time_step:]
+            x = future_pred_feed_x.copy()
+            for i in tqdm(range(future_step)):
+                x, criteria, max_val = self.transform(x)
+                y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
+                x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
+                x = self.inverse_transform(x, criteria, max_val)
+                future_pred.append(float(x[-1]))
+                if i < len(future_pred_feed_x):
+                    x = np.append(x[:-1], x[-1])
 
         y_true = np.asarray(self.validation_data)
-        y_pred = np.asarray(y_seq)
-        mae = np.mean(np.abs(np.asarray(y_true - y_pred[:len(y_true)])))
+        y_pred = np.asarray(y_pred)
+        mae = np.mean(np.abs(np.asarray(y_true - y_pred)))
         print(f'validation MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
-                self.plot_with_future_prediction(y_true, y_pred, 'AI predicted validation data with future')
+                self.plot_with_future_prediction(y_true, y_pred, future_pred, 'AI predicted validation data with future')
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted validation data')
         return mae
 
-    def plot_with_future_prediction(self, y_true, y_pred, title):
-        y_true = y_true.tolist()
-        y_pred = y_pred.tolist()
-        y_pred_raw_only = y_pred[:len(y_true)]
-        y_pred_predicted_future_only = y_pred[len(y_true):]
-        padded_y_pred_predicted_future = [None for _ in range(len(y_true) - 1)] + [y_pred_raw_only[-1]] + y_pred[len(y_true):]
-        print(f'last price : {y_pred_raw_only[-1]:.4f}')
-        for i in range(len(y_pred_predicted_future_only)):
-            print(f'predicted price {i + 1} day after: {y_pred_predicted_future_only[i]:.4f}')
-        self.plot([y_true, y_pred_raw_only, padded_y_pred_predicted_future], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], title)
+    def plot_with_future_prediction(self, y_true, y_pred, future_pred, title):
+        y_true = np.asarray(y_true)
+        y_pred = np.asarray(y_pred)
+        future_pred_not_padded = np.array(future_pred)
+        future_pred = [None for _ in range(len(y_true) - 1)] + [y_true[-1]] + future_pred
+        future_pred = np.asarray(future_pred)
+        print(f'last price : {y_true[-1]:.4f}')
+        for i in range(len(future_pred_not_padded)):
+            print(f'predicted price {(i + 1):3d} day after: {future_pred_not_padded[i]:.4f}')
+        self.plot([y_true, y_pred, future_pred], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], title)
