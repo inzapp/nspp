@@ -189,32 +189,14 @@ class NasdaqStockPricePredictor:
 
     def evaluate_train(self, show_plot=False, future_step=0):
         print()
-        y_pred = []
-        x = self.train_data[:self.time_step]
-        for i in tqdm(range(len(self.train_data) - self.time_step)):
-            x, criteria, max_val = self.transform(x)
-            y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
-            x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
-            x = self.inverse_transform(x, criteria, max_val)
-            y_pred.append(float(x[-1]))
-            x = np.append(x[:-1], self.train_data[self.time_step + i])
-
-        future_pred = []
-        if future_step > 0:
-            future_pred_feed_x = self.train_data[-self.time_step:]
-            x = future_pred_feed_x.copy()
-            for i in tqdm(range(future_step)):
-                x, criteria, max_val = self.transform(x)
-                y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
-                x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
-                x = self.inverse_transform(x, criteria, max_val)
-                future_pred.append(float(x[-1]))
-                if i < len(future_pred_feed_x):
-                    x = np.append(x[:-1], x[-1])
-
-        y_true = np.asarray(self.train_data[self.time_step:])
+        y_pred_initial_x = self.train_data[:self.time_step]
+        y_pred_data_x = self.train_data[self.time_step:]
+        y_pred = self.predict(y_pred_initial_x, y_pred_data_x, 0)
+        future_pred_initial_x = self.train_data[-self.time_step:]
+        future_pred = self.predict(future_pred_initial_x, [], future_step)
+        y_true = np.asarray(y_pred_data_x)
         y_pred = np.asarray(y_pred)
-        mae = np.mean(np.abs(np.asarray(y_true - y_pred[:len(y_true)])))
+        mae = np.mean(np.abs(np.asarray(y_true - y_pred)))
         print(f'train MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
@@ -225,30 +207,12 @@ class NasdaqStockPricePredictor:
 
     def evaluate_validation(self, show_plot=False, future_step=0):
         print()
-        y_pred = []
-        x = self.train_data[-self.time_step:]
-        for i in tqdm(range(len(self.validation_data))):
-            x, criteria, max_val = self.transform(x)
-            y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
-            x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
-            x = self.inverse_transform(x, criteria, max_val)
-            y_pred.append(float(x[-1]))
-            x = np.append(x[:-1], self.validation_data[i])
-
-        future_pred = []
-        if future_step > 0:
-            future_pred_feed_x = self.validation_data[-self.time_step:]
-            x = future_pred_feed_x.copy()
-            for i in tqdm(range(future_step)):
-                x, criteria, max_val = self.transform(x)
-                y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
-                x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
-                x = self.inverse_transform(x, criteria, max_val)
-                future_pred.append(float(x[-1]))
-                if i < len(future_pred_feed_x):
-                    x = np.append(x[:-1], x[-1])
-
-        y_true = np.asarray(self.validation_data)
+        y_pred_initial_x = self.train_data[-self.time_step:]
+        y_pred_data_x = self.validation_data
+        y_pred = self.predict(y_pred_initial_x, y_pred_data_x, 0)
+        future_pred_initial_x = self.validation_data[-self.time_step:]
+        future_pred = self.predict(future_pred_initial_x, [], future_step)
+        y_true = np.asarray(y_pred_data_x)
         y_pred = np.asarray(y_pred)
         mae = np.mean(np.abs(np.asarray(y_true - y_pred)))
         print(f'validation MAE : {mae:4f}\n')
@@ -258,6 +222,19 @@ class NasdaqStockPricePredictor:
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted validation data')
         return mae
+
+    def predict(self, initial_x, data_x, future_step=0):
+        y_pred = []
+        x = initial_x
+        for i in tqdm(range(len(data_x) + future_step)):
+            x, criteria, max_val = self.transform(x)
+            y = self.graph_forward(self.model, np.asarray(x).reshape((1, self.time_step, 1)), False)
+            x = np.append(x[1:], np.asarray(y).reshape(-1)[-1])
+            x = self.inverse_transform(x, criteria, max_val)
+            y_pred.append(float(x[-1]))
+            if i < len(data_x):
+                x = np.append(x[:-1], data_x[i])
+        return y_pred
 
     def plot_with_future_prediction(self, y_true, y_pred, future_pred, title):
         y_true = np.asarray(y_true)
