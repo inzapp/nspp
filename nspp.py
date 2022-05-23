@@ -34,10 +34,27 @@ class NasdaqStockPricePredictor:
         self.max_iteration_count = max_iteration_count
         self.model = None
         if pretrained_model_path != '':
-            self.model = tf.keras.models.load_model(pretrained_model_path, compile=False)
+            self.model = self.load_model(pretrained_model_path)
         else:
             self.model = self.build_model()
         self.train_data, self.validation_data, self.train_x, self.train_y, self.validation_x, self.validation_y = self.load_data()
+
+    def load_model(self, model_path):
+        model_path = model_path.replace('\\', '/')
+        model = tf.keras.models.load_model(model_path, compile=False)
+        sp = model_path.split('/')[-1].split('_')
+        self.ticker = sp[0]
+        self.start_date = sp[1]
+        self.end_date = sp[2]
+        self.interval = sp[3]
+        self.validation_ratio = float(sp[4])
+        print(f'\nload pretrained model : [{model_path}]')
+        print(f'ticker : {self.ticker}')
+        print(f'start_date : {self.start_date}')
+        print(f'end_date : {self.end_date}')
+        print(f'interval : {self.interval}')
+        print(f'validation_ratio : {self.validation_ratio}')
+        return model
 
     def build_model(self):
         input_layer = tf.keras.layers.Input(shape=(self.time_step, 1))
@@ -102,7 +119,7 @@ class NasdaqStockPricePredictor:
 
     def transform(self, arr):
         arr = np.asarray(arr, dtype=np.float32)
-        max_val = np.max(arr[:self.time_step]) + 1e-5
+        max_val = np.max(np.abs(arr[:self.time_step])) + 1e-5
         arr /= max_val
         criteria = arr[0]
         arr -= criteria
@@ -173,8 +190,8 @@ class NasdaqStockPricePredictor:
                 if iteration_count % 2000 == 0:
                     model_save_path = f'checkpoints/{self.ticker}_{iteration_count}_iter.h5'
                     if self.validation_ratio > 0.0:
-                        loss = self.evaluate_validation()
-                        model_save_path = f'checkpoints/{self.ticker}_{iteration_count}_iter_{loss:.2f}_mae.h5'
+                        mape, mae = self.evaluate_validation()
+                        model_save_path = f'checkpoints/{self.ticker}_{self.start_date}_{self.end_date}_{self.interval}_{self.validation_ratio}_val_{iteration_count}_iter_{mape:.4f}_MAPE_{mae:.4f}_MAE.h5'
                     else:
                         print()
                     self.model.save(model_save_path, include_optimizer=False)
@@ -197,13 +214,14 @@ class NasdaqStockPricePredictor:
         y_true = np.asarray(y_pred_data_x)
         y_pred = np.asarray(y_pred)
         mae = np.mean(np.abs(np.asarray(y_true - y_pred)))
-        print(f'train MAE : {mae:4f}\n')
+        mape = np.mean(mae / np.abs(y_true))
+        print(f'train MAPE : {mape:.4f}, MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
                 self.plot_with_future_prediction(y_true, y_pred, future_pred, 'AI predicted train data with future')
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted train data')
-        return mae
+        return mape, mae
 
     def evaluate_validation(self, show_plot=False, future_step=0):
         print()
@@ -215,13 +233,14 @@ class NasdaqStockPricePredictor:
         y_true = np.asarray(y_pred_data_x)
         y_pred = np.asarray(y_pred)
         mae = np.mean(np.abs(np.asarray(y_true - y_pred)))
-        print(f'validation MAE : {mae:4f}\n')
+        mape = np.mean(mae / np.abs(y_true))
+        print(f'validation MAPE : {mape:.4f}, MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
                 self.plot_with_future_prediction(y_true, y_pred, future_pred, 'AI predicted validation data with future')
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted validation data')
-        return mae
+        return mape, mae
 
     def predict(self, initial_x, data_x, future_step=0):
         y_pred = []
