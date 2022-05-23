@@ -237,7 +237,7 @@ class NasdaqStockPricePredictor:
         print(f'validation MAPE : {mape:.4f}, MAE : {mae:4f}\n')
         if show_plot:
             if future_step > 0:
-                self.plot_with_future_prediction(y_true, y_pred, future_pred, 'AI predicted validation data with future')
+                self.plot_with_future_prediction(y_true, y_pred, future_pred, 'AI predicted validation data with future', show_end_date=True)
             else:
                 self.plot([y_true, y_pred], [f'{self.ticker}', 'AI predicted'], 'AI predicted validation data')
         return mape, mae
@@ -255,13 +255,16 @@ class NasdaqStockPricePredictor:
                 x = np.append(x[:-1], data_x[i])
         return y_pred
 
-    def plot_with_future_prediction(self, y_true, y_pred, future_pred, title):
+    def plot_with_future_prediction(self, y_true, y_pred, future_pred, title, show_end_date=False):
         y_true = np.asarray(y_true)
         y_pred = np.asarray(y_pred)
         future_pred_not_padded = np.array(future_pred)
         future_pred = [None for _ in range(len(y_true) - 1)] + [y_true[-1]] + future_pred
         future_pred = np.asarray(future_pred)
-        print(f'last price : {y_true[-1]:.4f}')
+        if show_end_date:
+            print(f'last price({self.end_date}) : {y_true[-1]:.4f}')
+        else:
+            print(f'last price : {y_true[-1]:.4f}')
         interval_n, interval_unit = self.get_interval_unit(self.interval)
         for i in range(len(future_pred_not_padded)):
             interval_n_cur = (i + 1) * interval_n
