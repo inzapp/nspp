@@ -15,7 +15,7 @@ class NasdaqStockPricePredictor:
                  start_date,
                  end_date,
                  interval='1d',
-                 lr=0.01,
+                 lr=0.001,
                  time_step=14,
                  batch_size=32,
                  future_step=7,
