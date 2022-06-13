@@ -65,8 +65,8 @@ class NasdaqStockPricePredictor:
 
     def load_data(self):
         data = []
-        if self.ticker == 'sample_data':
-            with open('sample_data.txt', 'rt') as f:
+        if os.path.exists(self.ticker) and os.path.isfile(self.ticker):
+            with open(self.ticker, 'rt') as f:
                 lines = f.readlines()
             for line in lines:
                 data.append(float(line))
