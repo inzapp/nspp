@@ -58,9 +58,9 @@ class NasdaqStockPricePredictor:
 
     def build_model(self):
         input_layer = tf.keras.layers.Input(shape=(self.time_step, 1))
-        x = tf.keras.layers.LSTM(units=32, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(input_layer)
-        x = tf.keras.layers.LSTM(units=32, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(x)
-        x = tf.keras.layers.Dense(units=1, kernel_initializer='he_normal', activation='linear')(x)
+        x = tf.keras.layers.LSTM(units=256, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(input_layer)
+        x = tf.keras.layers.LSTM(units=256, kernel_initializer='glorot_normal', activation='tanh', return_sequences=False)(x)
+        x = tf.keras.layers.Dense(units=1, activation='linear')(x)
         return tf.keras.models.Model(input_layer, x)
 
     def load_data(self):
@@ -96,6 +96,8 @@ class NasdaqStockPricePredictor:
             assert len(validation_data) > self.time_step
         train_x, train_y = self.convert_time_series_data(train_data, self.time_step)
         validation_x, validation_y = self.convert_time_series_data(validation_data, self.time_step)
+        train_y = train_y.reshape((len(train_y), 1))
+        validation_y = validation_y.reshape((len(validation_y), 1))
         return train_data, validation_data, train_x, train_y, validation_x, validation_y
 
     def plot_train_validation_data(self, train_data, validation_data):
