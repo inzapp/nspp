@@ -104,12 +104,17 @@ class NasdaqStockPricePredictor:
                 exit(0)
             nan_indexes = np.where(np.isnan(data) == True)
             if len(nan_indexes) > 0:
-                ans = input(f'{len(nan_indexes)} nan detected in {self.ticker}({self.start_date} ~ {self.end_date}) data. ignore and continue train? [y/n] : ')
-                if ans == 'y' or ans == 'Y':
+                if len(nan_indexes) == 1:
                     for i in nan_indexes[::-1]:
                         data = np.delete(data, i)
+                    print('1 nan value is ignored')
                 else:
-                    exit(0)
+                    ans = input(f'{len(nan_indexes)} nan detected in {self.ticker}({self.start_date} ~ {self.end_date}) data. ignore and continue train? [y/n] : ')
+                    if ans == 'y' or ans == 'Y':
+                        for i in nan_indexes[::-1]:
+                            data = np.delete(data, i)
+                    else:
+                        exit(0)
         split = int(len(data) * (1.0 - self.validation_ratio))
         train_data = data[:split]
         validation_data = data[split:]
