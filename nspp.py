@@ -32,6 +32,7 @@ class NasdaqStockPricePredictor:
         self.future_step = future_step
         self.validation_ratio = validation_ratio
         self.max_iteration_count = max_iteration_count
+        self.use_custom_data = False
         self.model = None
         if pretrained_model_path != '':
             self.model = self.load_model(pretrained_model_path)
@@ -42,18 +43,38 @@ class NasdaqStockPricePredictor:
     def load_model(self, model_path):
         model_path = model_path.replace('\\', '/')
         model = tf.keras.models.load_model(model_path, compile=False)
-        sp = model_path.split('/')[-1].split('_')
-        self.ticker = sp[0]
-        self.start_date = sp[1]
-        self.end_date = sp[2]
-        self.interval = sp[3]
-        self.validation_ratio = float(sp[4])
-        print(f'\nload pretrained model : [{model_path}]')
-        print(f'ticker : {self.ticker}')
-        print(f'start_date : {self.start_date}')
-        print(f'end_date : {self.end_date}')
-        print(f'interval : {self.interval}')
-        print(f'validation_ratio : {self.validation_ratio}')
+        basename = os.path.basename(model_path)
+        if basename.endswith('_cd.h5'):
+            val_found = False
+            for i in range(len(basename) - 1, 0, -1):
+                if val_found:
+                    if basename[i] == '_':
+                        self.ticker = basename[:i]
+                        basename = basename[i + 1:]
+                        break
+                if basename[i:].find('_val_') > -1:
+                    val_found = True
+            if not val_found:
+                print(f'invalid pretrained model path [{model_path}]')
+                exit(0)
+            sp = basename.split('_')
+            self.validation_ratio = float(sp[0])
+            print(f'\nload pretrained model : [{model_path}]')
+            print(f'ticker : {self.ticker}')
+            print(f'validation_ratio : {self.validation_ratio}')
+        else:
+            sp = basename.split('_')
+            self.ticker = sp[0]
+            self.start_date = sp[1]
+            self.end_date = sp[2]
+            self.interval = sp[3]
+            self.validation_ratio = float(sp[4])
+            print(f'\nload pretrained model : [{model_path}]')
+            print(f'ticker : {self.ticker}')
+            print(f'start_date : {self.start_date}')
+            print(f'end_date : {self.end_date}')
+            print(f'interval : {self.interval}')
+            print(f'validation_ratio : {self.validation_ratio}')
         return model
 
     def build_model(self):
@@ -71,6 +92,7 @@ class NasdaqStockPricePredictor:
             for line in lines:
                 data.append(float(line))
             data = np.array(data)
+            self.use_custom_data = True
         else:
             assert self.interval in ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h', '1d', '5d', '1wk', '1mo', '3mo']
             if self.start_date < '1971-01-01':
@@ -193,7 +215,10 @@ class NasdaqStockPricePredictor:
                     model_save_path = f'checkpoints/{self.ticker}_{iteration_count}_iter.h5'
                     if self.validation_ratio > 0.0:
                         mape, mae = self.evaluate_validation()
-                        model_save_path = f'checkpoints/{self.ticker}_{self.start_date}_{self.end_date}_{self.interval}_{self.validation_ratio}_val_{iteration_count}_iter_{mape:.4f}_MAPE_{mae:.4f}_MAE.h5'
+                        if self.use_custom_data:
+                            model_save_path = f'checkpoints/{self.ticker}_{self.validation_ratio}_val_{iteration_count}_iter_{mape:.4f}_MAPE_{mae:.4f}_MAE_cd.h5'
+                        else:
+                            model_save_path = f'checkpoints/{self.ticker}_{self.start_date}_{self.end_date}_{self.interval}_{self.validation_ratio}_val_{iteration_count}_iter_{mape:.4f}_MAPE_{mae:.4f}_MAE.h5'
                     else:
                         print()
                     self.model.save(model_save_path, include_optimizer=False)
