@@ -19,6 +19,7 @@ class NasdaqStockPricePredictor:
                  time_step=14,
                  batch_size=32,
                  future_step=7,
+                 model_type='lstm',
                  validation_ratio=0.2,
                  max_iteration_count=100000,
                  pretrained_model_path=''):
@@ -32,6 +33,7 @@ class NasdaqStockPricePredictor:
         self.future_step = future_step
         self.validation_ratio = validation_ratio
         self.max_iteration_count = max_iteration_count
+        self.model_type = model_type
         self.use_custom_data = False
         self.model = None
         if pretrained_model_path != '':
@@ -79,8 +81,26 @@ class NasdaqStockPricePredictor:
 
     def build_model(self):
         input_layer = tf.keras.layers.Input(shape=(self.time_step, 1))
-        x = tf.keras.layers.LSTM(units=256, kernel_initializer='glorot_normal', activation='tanh', return_sequences=True)(input_layer)
-        x = tf.keras.layers.LSTM(units=256, kernel_initializer='glorot_normal', activation='tanh', return_sequences=False)(x)
+        if self.model_type == 'lstm':
+            x = tf.keras.layers.LSTM(
+                units=128,
+                recurrent_initializer='glorot_normal',
+                kernel_initializer='glorot_normal',
+                recurrent_activation='tanh',
+                activation='tanh',
+                return_sequences=False)(input_layer)
+        elif self.model_type == 'gru':
+            x = tf.keras.layers.GRU(
+                units=128,
+                recurrent_initializer='glorot_normal',
+                kernel_initializer='glorot_normal',
+                recurrent_activation='tanh',
+                activation='tanh',
+                return_sequences=False)(input_layer)
+        elif self.model_type == 'dense':
+            x = tf.keras.layers.Flatten()(input_layer)
+            x = tf.keras.layers.Dense(units=128, kernel_initializer='glorot_normal', activation='tanh')(x)
+            x = tf.keras.layers.Dense(units=128, kernel_initializer='glorot_normal', activation='tanh')(x)
         x = tf.keras.layers.Dense(units=1, activation='linear')(x)
         return tf.keras.models.Model(input_layer, x)
 
