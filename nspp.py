@@ -313,20 +313,28 @@ class NasdaqStockPricePredictor:
         future_pred_not_padded = np.array(future_pred)
         future_pred = [None for _ in range(len(y_true) - 1)] + [y_true[-1]] + future_pred
         future_pred = np.asarray(future_pred)
-        if show_end_date:
-            print(f'last price({self.end_date}) : {y_true[-1]:.4f}')
+        if self.use_custom_data:
+            unit = 'value'
+            end_date = ''
         else:
-            print(f'last price : {y_true[-1]:.4f}')
+            unit = 'price'
+            end_date = f'({self.end_date})'
+        if show_end_date:
+            print(f'last {unit}{end_date} : {y_true[-1]:.4f}')
+        else:
+            print(f'last {unit} : {y_true[-1]:.4f}')
         interval_n, interval_unit = self.get_interval_unit(self.interval)
         for i in range(len(future_pred_not_padded)):
             interval_n_cur = (i + 1) * interval_n
             if interval_n_cur > 1:
-                print(f'predicted price {interval_n_cur:3d} {interval_unit}s after: {future_pred_not_padded[i]:.4f}')
+                print(f'predicted {unit} {interval_n_cur:3d} {interval_unit}s after: {future_pred_not_padded[i]:.4f}')
             else:
-                print(f'predicted price {interval_n_cur:3d}  {interval_unit} after: {future_pred_not_padded[i]:.4f}')
+                print(f'predicted {unit} {interval_n_cur:3d}  {interval_unit} after: {future_pred_not_padded[i]:.4f}')
         self.plot([y_true, y_pred, future_pred], [f'{self.ticker}', 'AI predicted', 'AI predicted future'], title)
 
     def get_interval_unit(self, interval):
+        if self.use_custom_data:
+            return 1, 'step'
         n = ''
         unit = ''
         for i in range(len(interval)):
